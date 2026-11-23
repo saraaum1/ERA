@@ -1,22 +1,20 @@
 /**
- * One command to prepare an ERA database (local or on Railway):
- *   npm run db:setup
- * 1. Creates every table and trigger from ERA_database.sql (safe to run again).
- * 2. Adds the Upload table for provider cover photos.
- * 3. Adds the demo content unless ERA_SEED_DEMO=false.
+ * One command to prepare an ERA database:   npm run db:setup
+ *  - PostgreSQL (Neon / Vercel): runs ERA_database.postgres.sql
+ *  - MySQL / MariaDB (local / Railway): runs ERA_database.sql (+ Upload table)
+ * Safe to run again. Adds the demo content unless ERA_SEED_DEMO=false.
  */
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import mysql from "mysql2/promise";
-import { dbConfig } from "./db-config.mjs";
+import { connect, pgUrl } from "./db.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, "..");
 
-/** Split ERA_database.sql into statements, honouring DELIMITER blocks and skipping CREATE DATABASE / USE. */
-function statements(sqlText) {
+/** Split the MySQL file into statements, honouring DELIMITER blocks and skipping CREATE DATABASE / USE. */
+function mysqlStatements(sqlText) {
   const out = [];
   let delimiter = ";";
   let buf = [];
@@ -41,20 +39,30 @@ function statements(sqlText) {
   return out;
 }
 
-const cfg = dbConfig();
-if (!cfg.user) {
-  console.error("Missing database settings. Set DB_* in .env, or MYSQL_URL on Railway.");
-  process.exit(1);
+if (
+  process.argv.includes("--if-configured") &&
+  !pgUrl() &&
+  !process.env.DB_HOST &&
+  !process.env.MYSQL_URL &&
+  !process.env.MYSQLHOST
+) {
+  console.log("No database configured yet — skipping database setup.");
+  process.exit(0);
 }
 
-const db = await mysql.createConnection({ ...cfg, multipleStatements: false });
+const db = await connect();
 try {
-  const list = statements(readFileSync(path.join(root, "ERA_database.sql"), "utf8"));
-  for (const stmt of list) await db.query(stmt);
-  await db.query(
-    "CREATE TABLE IF NOT EXISTS Upload (uploadID INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, mime VARCHAR(30) NOT NULL, data MEDIUMBLOB NOT NULL, createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
-  );
-  console.log(`Database ready: ${list.length} schema statements applied to "${cfg.database}".`);
+  if (db.isPg) {
+    await db.raw(readFileSync(path.join(root, "ERA_database.postgres.sql"), "utf8"));
+    console.log("PostgreSQL database ready (tables, triggers, Upload table).");
+  } else {
+    const list = mysqlStatements(readFileSync(path.join(root, "ERA_database.sql"), "utf8"));
+    for (const stmt of list) await db.query(stmt);
+    await db.query(
+      "CREATE TABLE IF NOT EXISTS Upload (uploadID INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, mime VARCHAR(30) NOT NULL, data MEDIUMBLOB NOT NULL, createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
+    );
+    console.log(`MySQL database ready: ${list.length} schema statements applied.`);
+  }
 } finally {
   await db.end();
 }

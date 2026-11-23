@@ -37,6 +37,21 @@ Requirements: **Node.js 20.6+** and **MySQL 8 / MariaDB 10.10+**.
 
 Demo accounts (local testing only): `customer@era.demo` / `demo1234` and `provider@era.demo` / `demo1234`.
 
+## Deploy free on Vercel + Neon
+
+ERA runs on **MySQL locally** and on **PostgreSQL (Neon) in the cloud** — the server picks the engine from the connection string. `ERA_database.postgres.sql` is the PostgreSQL version of the schema, with the same tables, rules and triggers.
+
+1. On [vercel.com](https://vercel.com) sign in with GitHub → **Add New → Project** → import this repository → **Deploy** (the first deploy has no database yet; that's fine).
+2. In the project: **Storage → Create Database → Neon (Serverless Postgres)** → create it and **connect** it to the project. Vercel adds `DATABASE_URL` automatically.
+3. **Settings → Environment Variables**, add:
+   | Variable | Value |
+   |---|---|
+   | `ERA_SESSION_SECRET` | any random text, 32+ characters |
+   | `ERA_DEMO_PASSWORD` | your own strong password for the demo accounts |
+4. **Deployments → ⋯ → Redeploy.** The build (`vercel-build`) creates the tables and triggers on Neon, adds the demo content (set `ERA_SEED_DEMO=false` to start empty), and builds the site.
+
+Your site is live at `https://<project>.vercel.app`, and every push to `main` redeploys it.
+
 ## Deploy on Railway
 
 This app needs a **Node.js server and a MySQL database**, so it cannot run on static hosting such as GitHub Pages. The repo is ready for [Railway](https://railway.com): `railway.json` builds a Node server, prepares the database on every deploy (`npm run db:setup`) and starts the site (`npm start`).

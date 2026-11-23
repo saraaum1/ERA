@@ -1,8 +1,7 @@
 /** Adds ERA's Saudi experiences. Run with: npm run seed:saudi. Safe to run again (skips names that already exist). */
-import mysql from "mysql2/promise";
-import { dbConfig } from "./db-config.mjs";
+import { connect } from "./db.mjs";
 
-const db = await mysql.createConnection(dbConfig());
+const db = await connect();
 
 // [name, type, description, destination, location, date, time, capacity, shape, color, icon]
 const IMAGES = {
@@ -134,7 +133,7 @@ try {
   );
   // Keep the AlUla stargazing night bookable.
   await db.execute(
-    "UPDATE Activity SET `date`='2026-12-14' WHERE activityName='Stargazing Experience in AlUla' AND `date` < CURRENT_DATE()",
+    "UPDATE Activity SET `date`='2026-12-14' WHERE activityName='Stargazing Experience in AlUla' AND `date` < CURRENT_DATE",
   );
 
   let added = 0;

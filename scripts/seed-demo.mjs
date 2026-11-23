@@ -1,17 +1,18 @@
 /** Run once with: npm run seed:demo. Never deletes existing records. */
-import mysql from "mysql2/promise";
-import { dbConfig } from "./db-config.mjs";
+import { connect } from "./db.mjs";
 
 // Local testing uses demo1234. On a public host set ERA_DEMO_PASSWORD to your own strong password.
 const DEMO_PASSWORD = process.env.ERA_DEMO_PASSWORD || "demo1234";
 import bcrypt from "bcryptjs";
 
-const db = await mysql.createConnection(dbConfig());
+const db = await connect();
 try {
-  // Make sure the stamp identity columns exist (older era_db installs).
-  const [cols] = await db.execute(
-    "SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = 'activity'",
-  );
+  // Make sure the stamp identity columns exist (older MySQL era_db installs).
+  const [cols] = db.isPg
+    ? [[{ c: "stampshape" }, { c: "stampcolor" }, { c: "stampicon" }]]
+    : await db.execute(
+        "SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = 'activity'",
+      );
   const have = new Set(cols.map((r) => String(r.c).toLowerCase()));
   const missing = [
     ["stampShape", "VARCHAR(20)"],

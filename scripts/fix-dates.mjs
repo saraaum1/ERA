@@ -4,10 +4,9 @@
  *  - Seasonal experiences sit in their real season.
  *  - The demo customer gets a past history: experiences completed earlier this autumn.
  */
-import mysql from "mysql2/promise";
-import { dbConfig } from "./db-config.mjs";
+import { connect } from "./db.mjs";
 
-const db = await mysql.createConnection(dbConfig());
+const db = await connect();
 
 try {
   // 1) Seasons: Al-Ahsa dates are harvested in late summer.
@@ -17,7 +16,7 @@ try {
 
   // 2) Completed bookings whose experience is still in the future go back to Confirmed (and lose the early stamp).
   const [early] = await db.execute(
-    "SELECT b.bookingID FROM Booking b JOIN Activity a ON a.activityID=b.activityID WHERE b.status='Completed' AND a.`date` > CURRENT_DATE()",
+    "SELECT b.bookingID FROM Booking b JOIN Activity a ON a.activityID=b.activityID WHERE b.status='Completed' AND a.`date` > CURRENT_DATE",
   );
   for (const { bookingID } of early) {
     await db.execute("DELETE FROM DigitalStamp WHERE bookingID=?", [bookingID]);

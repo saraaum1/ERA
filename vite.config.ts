@@ -12,7 +12,7 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Build a standalone Node.js server (.output/server/index.mjs) for Railway / any Node host.
-  // Inside Lovable, LOVABLE_NITRO_PRESET still takes precedence.
-  nitro: { preset: "node-server" },
+  // Vercel builds the Vercel serverless output; everywhere else a standalone Node.js server
+  // (.output/server/index.mjs) for Railway / any Node host. Inside Lovable, LOVABLE_NITRO_PRESET still wins.
+  nitro: { preset: process.env.VERCEL ? "vercel" : "node-server" },
 });
