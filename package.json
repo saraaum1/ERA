@@ -4,17 +4,19 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=.env ./node_modules/vite/bin/vite.js dev",
-    "build": "node --env-file=.env ./node_modules/vite/bin/vite.js build",
+    "dev": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js dev",
+    "build": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js build",
     "build:dev": "vite build --mode development",
-    "preview": "node --env-file=.env ./node_modules/vite/bin/vite.js preview",
+    "preview": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js preview",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:demo": "node --env-file=.env scripts/seed-demo.mjs",
-    "seed:saudi": "node --env-file=.env scripts/seed-saudi.mjs",
-    "fix:dates": "node --env-file=.env scripts/fix-dates.mjs"
+    "seed:demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
+    "seed:saudi": "node --env-file-if-exists=.env scripts/seed-saudi.mjs",
+    "fix:dates": "node --env-file-if-exists=.env scripts/fix-dates.mjs",
+    "start": "node --env-file-if-exists=.env .output/server/index.mjs",
+    "db:setup": "node --env-file-if-exists=.env scripts/db-setup.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -97,5 +99,8 @@
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5",
     "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

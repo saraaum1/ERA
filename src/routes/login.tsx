@@ -105,11 +105,13 @@ function LoginPage() {
           Sign Up
         </Link>
       </p>
-      <div className="mt-10 border-t pt-5 text-xs leading-relaxed text-muted-foreground">
-        <p className="eyebrow mb-2">Demo accounts</p>
-        <p>Customer: customer@era.demo · demo1234</p>
-        <p>Provider: provider@era.demo · demo1234</p>
-      </div>
+      {import.meta.env.DEV && (
+        <div className="mt-10 border-t pt-5 text-xs leading-relaxed text-muted-foreground">
+          <p className="eyebrow mb-2">Demo accounts (local only)</p>
+          <p>Customer: customer@era.demo · demo1234</p>
+          <p>Provider: provider@era.demo · demo1234</p>
+        </div>
+      )}
     </AuthSplit>
   );
 }

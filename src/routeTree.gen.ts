@@ -21,6 +21,7 @@ import { Route as ActivitiesActivityIdRouteImport } from './routes/activities.$a
 import { Route as ApiEraRouteImport } from './routes/api.era'
 import { Route as ProviderIndexRouteImport } from './routes/provider.index'
 import { Route as TicketsTicketIdRouteImport } from './routes/tickets.$ticketId'
+import { Route as ApiImgIdRouteImport } from './routes/api.img.$id'
 import { Route as BookingIdConfirmationRouteImport } from './routes/booking.$id.confirmation'
 import { Route as BookingIdReviewRouteImport } from './routes/booking.$id.review'
 import { Route as ProviderActivitiesNewRouteImport } from './routes/provider.activities.new'
@@ -88,6 +89,11 @@ const TicketsTicketIdRoute = TicketsTicketIdRouteImport.update({
   path: '/tickets/$ticketId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImgIdRoute = ApiImgIdRouteImport.update({
+  id: '/api/img/$id',
+  path: '/api/img/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BookingIdConfirmationRoute = BookingIdConfirmationRouteImport.update({
   id: '/booking/$id/confirmation',
   path: '/booking/$id/confirmation',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/tickets/$ticketId': typeof TicketsTicketIdRoute
   '/activities/': typeof ActivitiesIndexRoute
   '/provider/': typeof ProviderIndexRoute
+  '/api/img/$id': typeof ApiImgIdRoute
   '/booking/$id/confirmation': typeof BookingIdConfirmationRoute
   '/booking/$id/review': typeof BookingIdReviewRoute
   '/provider/activities/new': typeof ProviderActivitiesNewRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/tickets/$ticketId': typeof TicketsTicketIdRoute
   '/activities': typeof ActivitiesIndexRoute
   '/provider': typeof ProviderIndexRoute
+  '/api/img/$id': typeof ApiImgIdRoute
   '/booking/$id/confirmation': typeof BookingIdConfirmationRoute
   '/booking/$id/review': typeof BookingIdReviewRoute
   '/provider/activities/new': typeof ProviderActivitiesNewRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/tickets/$ticketId': typeof TicketsTicketIdRoute
   '/activities/': typeof ActivitiesIndexRoute
   '/provider/': typeof ProviderIndexRoute
+  '/api/img/$id': typeof ApiImgIdRoute
   '/booking/$id/confirmation': typeof BookingIdConfirmationRoute
   '/booking/$id/review': typeof BookingIdReviewRoute
   '/provider/activities/new': typeof ProviderActivitiesNewRoute
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
     | '/tickets/$ticketId'
     | '/activities/'
     | '/provider/'
+    | '/api/img/$id'
     | '/booking/$id/confirmation'
     | '/booking/$id/review'
     | '/provider/activities/new'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/tickets/$ticketId'
     | '/activities'
     | '/provider'
+    | '/api/img/$id'
     | '/booking/$id/confirmation'
     | '/booking/$id/review'
     | '/provider/activities/new'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/tickets/$ticketId'
     | '/activities/'
     | '/provider/'
+    | '/api/img/$id'
     | '/booking/$id/confirmation'
     | '/booking/$id/review'
     | '/provider/activities/new'
@@ -258,6 +270,7 @@ export interface RootRouteChildren {
   TicketsTicketIdRoute: typeof TicketsTicketIdRoute
   ActivitiesIndexRoute: typeof ActivitiesIndexRoute
   ProviderIndexRoute: typeof ProviderIndexRoute
+  ApiImgIdRoute: typeof ApiImgIdRoute
   BookingIdConfirmationRoute: typeof BookingIdConfirmationRoute
   BookingIdReviewRoute: typeof BookingIdReviewRoute
   ProviderActivitiesNewRoute: typeof ProviderActivitiesNewRoute
@@ -352,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TicketsTicketIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/img/$id': {
+      id: '/api/img/$id'
+      path: '/api/img/$id'
+      fullPath: '/api/img/$id'
+      preLoaderRoute: typeof ApiImgIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/booking/$id/confirmation': {
       id: '/booking/$id/confirmation'
       path: '/booking/$id/confirmation'
@@ -410,6 +430,7 @@ const rootRouteChildren: RootRouteChildren = {
   TicketsTicketIdRoute: TicketsTicketIdRoute,
   ActivitiesIndexRoute: ActivitiesIndexRoute,
   ProviderIndexRoute: ProviderIndexRoute,
+  ApiImgIdRoute: ApiImgIdRoute,
   BookingIdConfirmationRoute: BookingIdConfirmationRoute,
   BookingIdReviewRoute: BookingIdReviewRoute,
   ProviderActivitiesNewRoute: ProviderActivitiesNewRoute,

@@ -6,22 +6,39 @@ import mysql, {
   type ResultSetHeader,
 } from "mysql2/promise";
 import bcrypt from "bcryptjs";
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { isStampColor, isStampIcon, isStampShape } from "./stamps";
 
 let pool: Pool | undefined;
+/** Database settings: DB_* from .env locally, or Railway's MYSQL_URL / MYSQL* variables. */
+function dbConfig() {
+  const env = process.env;
+  const url = env.DATABASE_URL || env.MYSQL_URL;
+  if (url && !env.DB_HOST) {
+    const u = new URL(url);
+    return {
+      host: u.hostname,
+      port: Number(u.port || 3306),
+      user: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+      database: u.pathname.replace(/^\//, ""),
+    };
+  }
+  return {
+    host: env.DB_HOST || env.MYSQLHOST || "127.0.0.1",
+    port: Number(env.DB_PORT || env.MYSQLPORT || 3306),
+    user: env.DB_USER || env.MYSQLUSER,
+    password: env.DB_PASSWORD ?? env.MYSQLPASSWORD,
+    database: env.DB_NAME || env.MYSQLDATABASE,
+  };
+}
 function db() {
   if (!pool) {
-    if (!process.env.DB_NAME || !process.env.DB_USER)
-      throw new Error("Missing DB_NAME / DB_USER in .env");
+    const cfg = dbConfig();
+    if (!cfg.database || !cfg.user)
+      throw new Error("Missing database settings (DB_* in .env or MYSQL_URL)");
     pool = mysql.createPool({
-      host: process.env.DB_HOST || "127.0.0.1",
-      port: Number(process.env.DB_PORT || 3306),
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      ...cfg,
       dateStrings: true,
       waitForConnections: true,
       connectionLimit: 10,
@@ -92,6 +109,40 @@ function imageKind(buf: Buffer): "jpg" | "png" | "webp" | null {
     return "webp";
   return null;
 }
+let uploadTable: Promise<void> | undefined;
+function ensureUploadTable() {
+  if (!uploadTable)
+    uploadTable = db()
+      .query(
+        "CREATE TABLE IF NOT EXISTS Upload (uploadID INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, mime VARCHAR(30) NOT NULL, data MEDIUMBLOB NOT NULL, createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
+      )
+      .then(() => undefined)
+      .catch((e) => {
+        uploadTable = undefined;
+        throw e;
+      });
+  return uploadTable;
+}
+/** Serves an uploaded cover image stored in the database. */
+export async function handleImageGet(id: string) {
+  const n = numberId(id);
+  if (!n) return new Response("Not found", { status: 404 });
+  try {
+    await ensureUploadTable();
+    const [row] = await sql("SELECT mime, data FROM Upload WHERE uploadID=?", [n]);
+    if (!row) return new Response("Not found", { status: 404 });
+    return new Response(new Uint8Array(row.data as Buffer), {
+      headers: {
+        "Content-Type": String(row.mime),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (e) {
+    console.error("ERA image error", e);
+    return new Response("Unavailable", { status: 503 });
+  }
+}
 const strongPassword = (p: string) =>
   p.length >= 8 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /\d/.test(p);
 const PASSWORD_RULE =
@@ -138,7 +189,10 @@ function sessionCookie(who: Identity, request: Request) {
   const payload = Buffer.from(JSON.stringify({ ...who, exp: Date.now() + TTL })).toString(
     "base64url",
   );
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  const proto =
+    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    new URL(request.url).protocol.replace(":", "");
+  const secure = proto === "https" ? "; Secure" : "";
   return `${COOKIE}=${payload}.${sign(payload)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=900${secure}`;
 }
 function removeCookie() {
@@ -425,7 +479,12 @@ export async function handleEraGet(request: Request) {
 export async function handleEraPost(request: Request) {
   const origin = request.headers.get("origin");
   const site = request.headers.get("sec-fetch-site");
-  if (origin !== new URL(request.url).origin && site !== "same-origin")
+  const fwdHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const fwdProto =
+    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    new URL(request.url).protocol.replace(":", "");
+  const publicOrigin = fwdHost ? `${fwdProto}://${fwdHost}` : new URL(request.url).origin;
+  if (origin !== new URL(request.url).origin && origin !== publicOrigin && site !== "same-origin")
     return invalid("Cross-origin request blocked.", 403);
   if (!request.headers.get("content-type")?.includes("application/json"))
     return invalid("Expected JSON body.", 415);
@@ -447,11 +506,13 @@ export async function handleEraPost(request: Request) {
       if (!kind) return invalid("Please upload a JPG, PNG or WebP image.", 415);
       if (buf.length > MAX_UPLOAD_BYTES)
         return invalid("Image is too large. Please use a photo under 6 MB.", 413);
-      const dir = path.join(process.cwd(), "public", "uploads");
-      await mkdir(dir, { recursive: true });
-      const name = `cover-${Date.now().toString(36)}-${randomBytes(6).toString("hex")}.${kind}`;
-      await writeFile(path.join(dir, name), buf);
-      return json({ ok: true, path: `/uploads/${name}` }, 200, sessionCookie(who, request));
+      await ensureUploadTable();
+      const mime = kind === "jpg" ? "image/jpeg" : `image/${kind}`;
+      const [r] = await db().execute<ResultSetHeader>(
+        "INSERT INTO Upload (mime, data) VALUES (?, ?)",
+        [mime, buf],
+      );
+      return json({ ok: true, path: `/api/img/${r.insertId}` }, 200, sessionCookie(who, request));
     }
     if (action === "login") {
       const identifier = str(input.identifier).toLowerCase(),

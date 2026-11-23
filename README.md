@@ -37,11 +37,24 @@ Requirements: **Node.js 20.6+** and **MySQL 8 / MariaDB 10.10+**.
 
 Demo accounts (local testing only): `customer@era.demo` / `demo1234` and `provider@era.demo` / `demo1234`.
 
-## Deployment
+## Deploy on Railway
 
-This app needs a **Node.js server and a MySQL database**, so it cannot run on static hosting such as GitHub Pages. Deploy it to a host that supports Node.js + MySQL (for example Railway or Render with a managed MySQL), set the variables from `.env.example` there, and run `ERA_database.sql` on the hosted database.
+This app needs a **Node.js server and a MySQL database**, so it cannot run on static hosting such as GitHub Pages. The repo is ready for [Railway](https://railway.com): `railway.json` builds a Node server, prepares the database on every deploy (`npm run db:setup`) and starts the site (`npm start`).
 
-Never commit `.env`. Remove or change the demo accounts before a public launch.
+1. In Railway: **New Project → Deploy from GitHub repo →** choose this repository.
+2. In the same project: **+ Create → Database → MySQL**.
+3. Open the ERA service → **Variables** and add:
+   | Variable | Value |
+   |---|---|
+   | `MYSQL_URL` | `${{MySQL.MYSQL_URL}}` (reference to the MySQL service) |
+   | `ERA_SESSION_SECRET` | any random text, 32+ characters |
+   | `ERA_DEMO_PASSWORD` | your own strong password for the demo accounts |
+4. ERA service → **Settings → Networking → Generate Domain** to get the public link.
+5. Railway redeploys automatically. The first deploy creates all tables and triggers and adds the demo content (set `ERA_SEED_DEMO=false` to start empty).
+
+Every push to `main` redeploys the site. Provider cover photos are stored in the database, so they survive redeploys.
+
+Never commit `.env`.
 
 ## Project structure
 

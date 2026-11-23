@@ -5,14 +5,9 @@
  *  - The demo customer gets a past history: experiences completed earlier this autumn.
  */
 import mysql from "mysql2/promise";
+import { dbConfig } from "./db-config.mjs";
 
-const db = await mysql.createConnection({
-  host: process.env.DB_HOST || "127.0.0.1",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || "era_db",
-});
+const db = await mysql.createConnection(dbConfig());
 
 try {
   // 1) Seasons: Al-Ahsa dates are harvested in late summer.

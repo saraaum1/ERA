@@ -1,14 +1,12 @@
 /** Run once with: npm run seed:demo. Never deletes existing records. */
 import mysql from "mysql2/promise";
+import { dbConfig } from "./db-config.mjs";
+
+// Local testing uses demo1234. On a public host set ERA_DEMO_PASSWORD to your own strong password.
+const DEMO_PASSWORD = process.env.ERA_DEMO_PASSWORD || "demo1234";
 import bcrypt from "bcryptjs";
 
-const db = await mysql.createConnection({
-  host: process.env.DB_HOST || "127.0.0.1",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || "era_db",
-});
+const db = await mysql.createConnection(dbConfig());
 try {
   // Make sure the stamp identity columns exist (older era_db installs).
   const [cols] = await db.execute(
@@ -36,7 +34,7 @@ try {
         "ERA Experiences Demo",
         "era_provider",
         "provider@era.demo",
-        await bcrypt.hash("demo1234", 12),
+        await bcrypt.hash(DEMO_PASSWORD, 12),
       ],
     );
     providerId = r.insertId;
@@ -47,7 +45,7 @@ try {
   if (!customers.length)
     await db.execute(
       "INSERT INTO Customer (fullName,username,email,passwordHash) VALUES (?,?,?,?)",
-      ["Layla Demo", "layla", "customer@era.demo", await bcrypt.hash("demo1234", 12)],
+      ["Layla Demo", "layla", "customer@era.demo", await bcrypt.hash(DEMO_PASSWORD, 12)],
     );
 
   const [acts] = await db.execute("SELECT COUNT(*) AS n FROM Activity");
@@ -151,7 +149,10 @@ try {
       );
     console.log("Seeded 6 ERA demo experiences.");
   }
-  console.log("Demo account credentials: customer@era.demo and provider@era.demo / demo1234");
+  console.log(
+    "Demo accounts: customer@era.demo and provider@era.demo" +
+      (process.env.ERA_DEMO_PASSWORD ? " (password from ERA_DEMO_PASSWORD)" : " / demo1234"),
+  );
   console.log("Finished without deleting any existing rows.");
 } finally {
   await db.end();
