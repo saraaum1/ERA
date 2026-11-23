@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Logo } from "./Logo";
+import { AssistantChat } from "./AssistantChat";
 import { useScrolled } from "./Motion";
 import { cn } from "@/lib/utils";
 import { useEra, homeFor } from "@/lib/era/use-era";
@@ -315,6 +316,7 @@ export function Public({
         {children(user)}
       </main>
       <SiteFooter user={user} />
+      <AssistantChat />
     </div>
   );
 }
@@ -348,6 +350,7 @@ export function Protected({
         {children(user)}
       </main>
       <SiteFooter user={user} />
+      <AssistantChat />
     </div>
   );
 }

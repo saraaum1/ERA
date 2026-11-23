@@ -18,6 +18,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ActivitiesIndexRouteImport } from './routes/activities.index'
 import { Route as ActivitiesActivityIdRouteImport } from './routes/activities.$activityId'
+import { Route as ApiAssistantRouteImport } from './routes/api.assistant'
 import { Route as ApiEraRouteImport } from './routes/api.era'
 import { Route as ProviderIndexRouteImport } from './routes/provider.index'
 import { Route as TicketsTicketIdRouteImport } from './routes/tickets.$ticketId'
@@ -72,6 +73,11 @@ const ActivitiesIndexRoute = ActivitiesIndexRouteImport.update({
 const ActivitiesActivityIdRoute = ActivitiesActivityIdRouteImport.update({
   id: '/activities/$activityId',
   path: '/activities/$activityId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAssistantRoute = ApiAssistantRouteImport.update({
+  id: '/api/assistant',
+  path: '/api/assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiEraRoute = ApiEraRouteImport.update({
@@ -136,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/activities/$activityId': typeof ActivitiesActivityIdRoute
+  '/api/assistant': typeof ApiAssistantRoute
   '/api/era': typeof ApiEraRoute
   '/tickets/$ticketId': typeof TicketsTicketIdRoute
   '/activities/': typeof ActivitiesIndexRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/activities/$activityId': typeof ActivitiesActivityIdRoute
+  '/api/assistant': typeof ApiAssistantRoute
   '/api/era': typeof ApiEraRoute
   '/tickets/$ticketId': typeof TicketsTicketIdRoute
   '/activities': typeof ActivitiesIndexRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/activities/$activityId': typeof ActivitiesActivityIdRoute
+  '/api/assistant': typeof ApiAssistantRoute
   '/api/era': typeof ApiEraRoute
   '/tickets/$ticketId': typeof TicketsTicketIdRoute
   '/activities/': typeof ActivitiesIndexRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/activities/$activityId'
+    | '/api/assistant'
     | '/api/era'
     | '/tickets/$ticketId'
     | '/activities/'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/activities/$activityId'
+    | '/api/assistant'
     | '/api/era'
     | '/tickets/$ticketId'
     | '/activities'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/activities/$activityId'
+    | '/api/assistant'
     | '/api/era'
     | '/tickets/$ticketId'
     | '/activities/'
@@ -266,6 +278,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   ActivitiesActivityIdRoute: typeof ActivitiesActivityIdRoute
+  ApiAssistantRoute: typeof ApiAssistantRoute
   ApiEraRoute: typeof ApiEraRoute
   TicketsTicketIdRoute: typeof TicketsTicketIdRoute
   ActivitiesIndexRoute: typeof ActivitiesIndexRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/activities/$activityId'
       fullPath: '/activities/$activityId'
       preLoaderRoute: typeof ActivitiesActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/assistant': {
+      id: '/api/assistant'
+      path: '/api/assistant'
+      fullPath: '/api/assistant'
+      preLoaderRoute: typeof ApiAssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/era': {
@@ -426,6 +446,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   ActivitiesActivityIdRoute: ActivitiesActivityIdRoute,
+  ApiAssistantRoute: ApiAssistantRoute,
   ApiEraRoute: ApiEraRoute,
   TicketsTicketIdRoute: TicketsTicketIdRoute,
   ActivitiesIndexRoute: ActivitiesIndexRoute,
