@@ -20,7 +20,7 @@ The **Ask ERA** button on every page opens a guide: visitors write their city an
 
 - It only recommends real, available experiences (upcoming, with seats left). The server checks every recommended ID against the database, and the cards show data straight from the database, so dates, places and availability are never invented. Distances come from a fixed table of city coordinates.
 - **Free by default:** without an API key it uses a built-in matcher (city, interests, categories; whole-word Arabic/English matching).
-- **With Claude:** set  (local , Vercel or Railway variables) and the guide uses Claude (, low effort, structured output) for natural conversation. If Claude is unavailable it falls back to the built-in matcher.
+- **With Claude:** set `ANTHROPIC_API_KEY` (local `.env`, Vercel or Railway variables) and the guide uses Claude (`claude-opus-5-5`, low effort, structured output) for natural conversation. If Claude is unavailable it falls back to the built-in matcher.
 - Limited to 20 questions per visitor per 10 minutes.
 
 ## Run locally
