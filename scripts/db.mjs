@@ -8,8 +8,13 @@ import mysql from "mysql2/promise";
 import pg from "pg";
 
 export function pgUrl() {
-  const u = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
-  return /^postgres(ql)?:\/\//i.test(u) ? u : "";
+  const env = process.env;
+  const isPg = (v) => !!v && /^postgres(ql)?:\/\//i.test(v);
+  for (const name of ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "NEON_DATABASE_URL"])
+    if (isPg(env[name])) return env[name];
+  const extra = Object.keys(env).filter((k) => /(DATABASE_URL|POSTGRES_URL)$/.test(k)).sort();
+  for (const name of extra) if (isPg(env[name])) return env[name];
+  return "";
 }
 
 export function mysqlConfig() {

@@ -9,6 +9,7 @@
  */
 import mysql from "mysql2/promise";
 import pg from "pg";
+import pgSchema from "../../../ERA_database.postgres.sql?raw";
 
 export type Header = { affectedRows: number; insertId: number };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,9 +22,18 @@ export interface DbPool extends DbConn {
   getConnection(): Promise<DbConn & { release(): void }>;
 }
 
+const PG_URL_NAMES = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "NEON_DATABASE_URL"];
+/** PostgreSQL connection string: the usual names, or any variable ending in DATABASE_URL / POSTGRES_URL
+ *  (Vercel can add a prefix, e.g. STORAGE_DATABASE_URL). */
 const pgUrl = () => {
-  const u = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
-  return /^postgres(ql)?:\/\//i.test(u) ? u : "";
+  const env = process.env;
+  const isPg = (v?: string) => !!v && /^postgres(ql)?:\/\//i.test(v);
+  for (const name of PG_URL_NAMES) if (isPg(env[name])) return env[name]!;
+  const extra = Object.keys(env)
+    .filter((k) => /(DATABASE_URL|POSTGRES_URL)$/.test(k))
+    .sort();
+  for (const name of extra) if (isPg(env[name])) return env[name]!;
+  return "";
 };
 export const isPostgres = () => Boolean(pgUrl());
 
@@ -114,6 +124,40 @@ function pgConn(runner: PgRunner): DbConn {
 
 /* ---------------- shared pool ---------------- */
 let pool: DbPool | undefined;
+let pgPool: pg.Pool | undefined;
+/** True when no database settings exist at all (nothing connected yet). */
+export function dbConfigured() {
+  const env = process.env;
+  return Boolean(pgUrl() || env.DB_HOST || env.DB_NAME || env.MYSQL_URL || env.MYSQLHOST || /^mysql:\/\//i.test(env.DATABASE_URL || ""));
+}
+/** Before the first query: if the PostgreSQL database is empty (fresh Neon), create ERA's tables. Checked once per server. */
+let readyCheck: Promise<void> | undefined;
+export function ensurePgReady(): Promise<void> {
+  if (!isPostgres()) return Promise.resolve();
+  if (!pgPool) db();
+  readyCheck ??= (async () => {
+    const r = await pgPool!.query("SELECT to_regclass('activity') IS NOT NULL AS ok");
+    if (!r.rows[0]?.ok) await ensurePgSchema();
+  })().catch((err) => {
+    readyCheck = undefined;
+    throw err;
+  });
+  return readyCheck;
+}
+/** Creates ERA's PostgreSQL tables and triggers (safe to run again). Used when a fresh Neon database is empty. */
+let schemaRun: Promise<void> | undefined;
+export function ensurePgSchema() {
+  if (!pgPool) db();
+  if (!pgPool) return Promise.resolve();
+  schemaRun ??= pgPool
+    .query(pgSchema)
+    .then(() => console.log("ERA: PostgreSQL tables created."))
+    .catch((e) => {
+      schemaRun = undefined;
+      throw e;
+    });
+  return schemaRun;
+}
 export function db(): DbPool {
   if (pool) return pool;
   const url = pgUrl();
@@ -124,6 +168,7 @@ export function db(): DbPool {
       max: Number(process.env.ERA_PG_POOL_MAX || 5),
       idleTimeoutMillis: 10_000,
     });
+    pgPool = p;
     const base = pgConn(p);
     pool = {
       ...base,

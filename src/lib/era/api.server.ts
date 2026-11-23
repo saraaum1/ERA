@@ -2,7 +2,7 @@
 import bcrypt from "bcryptjs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isStampColor, isStampIcon, isStampShape } from "./stamps";
-import { db, isPostgres, type DbConn, type Header } from "./db-engine";
+import { db, dbConfigured, ensurePgReady, ensurePgSchema, isPostgres, type DbConn, type Header } from "./db-engine";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RowDataPacket = Record<string, any>;
@@ -437,18 +437,45 @@ async function snapshot(who: Identity | null) {
     stamps: stamps.map(stampOf),
   };
 }
+/** Clear, safe explanation of a database problem (no secrets or internals). */
+function dbProblem(e: unknown) {
+  const err = e as { code?: string; message?: string };
+  if (!dbConfigured())
+    return "Database not connected. On Vercel: Storage → connect a Neon database, then Redeploy. Locally: start MySQL and check the .env file.";
+  if (err.code === "42P01" || err.code === "ER_NO_SUCH_TABLE")
+    return "The database is connected but its tables are missing. Redeploy the site (or run npm run db:setup).";
+  if (err.code === "28P01" || err.code === "ER_ACCESS_DENIED_ERROR")
+    return "The database refused the login. Check the database user/password settings.";
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT/.test(String(err.code ?? err.message)))
+    return isPostgres()
+      ? "Cannot reach the database server. Check that the Neon database is active and connected to this project."
+      : "Cannot reach MySQL. Make sure MySQL is running and the .env settings are correct.";
+  return "Database unavailable. Please try again shortly.";
+}
+const missingTable = (e: unknown) => (e as { code?: string }).code === "42P01";
+
 export async function handleEraGet(request: Request) {
-  try {
-    const who = parseSession(request);
+  const who = parseSession(request);
+  const load = async () => {
+    await ensurePgReady();
     await ensureStampColumns();
-    return json(
-      { ok: true, snapshot: await snapshot(who) },
-      200,
-      who ? sessionCookie(who, request) : undefined,
-    );
+    return json({ ok: true, snapshot: await snapshot(who) }, 200, who ? sessionCookie(who, request) : undefined);
+  };
+  try {
+    return await load();
   } catch (e) {
+    // A brand-new Neon database is empty: create the tables once, then try again.
+    if (isPostgres() && missingTable(e)) {
+      try {
+        await ensurePgSchema();
+        return await load();
+      } catch (e2) {
+        console.error("ERA snapshot error (after creating tables)", e2);
+        return invalid(dbProblem(e2), 503);
+      }
+    }
     console.error("ERA snapshot error", e);
-    return invalid("Database unavailable. Check MySQL and .env configuration.", 503);
+    return invalid(dbProblem(e), 503);
   }
 }
 export async function handleEraPost(request: Request) {
@@ -467,6 +494,7 @@ export async function handleEraPost(request: Request) {
     const body = ownInput(await request.json());
     const action = str(body.action),
       input = ownInput(body.payload);
+    await ensurePgReady();
     const hasStampColumns = await ensureStampColumns();
     const who = parseSession(request);
     if (action === "logout")
@@ -678,8 +706,9 @@ export async function handleEraPost(request: Request) {
       return invalid(err.message || "Operation rejected by database rules.", 409);
     if (err.code === "ER_DUP_ENTRY" || err.code === "23505")
       return invalid("That username or email is already registered.", 409);
+    if (isPostgres() && missingTable(e)) await ensurePgSchema().catch(() => {});
     return invalid(
-      "Database operation failed. Please check MySQL connection and server logs.",
+      dbProblem(e),
       503,
     );
   }

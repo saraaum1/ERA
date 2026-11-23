@@ -13,7 +13,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod/v4";
-import { db } from "./db-engine";
+import { db, ensurePgReady } from "./db-engine";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 export type Pick = { activityId: string; reason: string };
@@ -108,6 +108,7 @@ type Experience = {
   distanceKm: number | null;
 };
 async function catalogue(userPlace: ReturnType<typeof placeIn>): Promise<Experience[]> {
+  await ensurePgReady();
   const [rows] = await db().execute(
     "SELECT activityID, activityName, type, description, destination, location, `date`, `time`, availableCapacity, image FROM Activity WHERE isDeleted=FALSE AND `date` >= CURRENT_DATE AND availableCapacity > 0 ORDER BY `date`, `time`",
   );
