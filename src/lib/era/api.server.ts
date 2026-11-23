@@ -1,8 +1,16 @@
 /** ERA API (MySQL locally / Railway, PostgreSQL on Neon). Server-only. Do not import into client components. */
 import bcrypt from "bcryptjs";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { isStampColor, isStampIcon, isStampShape } from "./stamps";
-import { db, dbConfigured, ensurePgReady, ensurePgSchema, isPostgres, type DbConn, type Header } from "./db-engine";
+import {
+  db,
+  dbConfigured,
+  ensurePgReady,
+  ensurePgSchema,
+  isPostgres,
+  type DbConn,
+  type Header,
+} from "./db-engine";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RowDataPacket = Record<string, any>;
@@ -114,11 +122,29 @@ const PASSWORD_RULE =
   "Use at least 8 characters, an uppercase letter, a lowercase letter, and a number.";
 const tableFor = (r: Identity["role"]) => (r === "customer" ? "Customer" : "ServiceProvider");
 const idString = (i: Identity) => `${i.role}:${i.id}`;
+let warnedSecret = false;
+/**
+ * Secret used to sign login sessions. Prefer ERA_SESSION_SECRET (32+ characters). If it is missing on a
+ * host, derive a private secret from the database connection string (which only the server knows), so
+ * sign-in still works; set ERA_SESSION_SECRET to control it yourself.
+ */
 function sessionSecret() {
-  const secret = process.env.ERA_SESSION_SECRET;
-  if (!secret || secret.length < 32)
-    throw new Error("ERA_SESSION_SECRET must be at least 32 characters long in .env");
-  return secret;
+  const secret = process.env.ERA_SESSION_SECRET?.trim();
+  if (secret && secret.length >= 32) return secret;
+  const env = process.env;
+  const dbSecret = Object.keys(env)
+    .filter((k) => /(DATABASE_URL|POSTGRES_URL|MYSQL_URL)$/.test(k) || k === "DB_PASSWORD")
+    .sort()
+    .map((k) => env[k] ?? "")
+    .join("|");
+  if (!dbSecret) throw new Error("ERA_SESSION_SECRET must be at least 32 characters long");
+  if (!warnedSecret) {
+    warnedSecret = true;
+    console.warn(
+      "ERA: ERA_SESSION_SECRET is missing or shorter than 32 characters; using a secret derived from the database settings.",
+    );
+  }
+  return createHash("sha256").update(`era-session:${dbSecret}`).digest("hex");
 }
 function sign(s: string) {
   return createHmac("sha256", sessionSecret()).update(s).digest("hex");
@@ -326,6 +352,16 @@ async function uniqueIdentity(
   return null;
 }
 async function withIdentityLock<T>(fn: (conn: PoolConnection) => Promise<T>) {
+  // PostgreSQL (Neon) uses pooled connections where session locks are unreliable; its UNIQUE
+  // constraints (reported as "already taken") protect sign-ups instead.
+  if (isPostgres()) {
+    const c = await db().getConnection();
+    try {
+      return await fn(c);
+    } finally {
+      c.release();
+    }
+  }
   const conn = await db().getConnection();
   let locked = false;
   try {
@@ -459,7 +495,11 @@ export async function handleEraGet(request: Request) {
   const load = async () => {
     await ensurePgReady();
     await ensureStampColumns();
-    return json({ ok: true, snapshot: await snapshot(who) }, 200, who ? sessionCookie(who, request) : undefined);
+    return json(
+      { ok: true, snapshot: await snapshot(who) },
+      200,
+      who ? sessionCookie(who, request) : undefined,
+    );
   };
   try {
     return await load();
@@ -707,9 +747,6 @@ export async function handleEraPost(request: Request) {
     if (err.code === "ER_DUP_ENTRY" || err.code === "23505")
       return invalid("That username or email is already registered.", 409);
     if (isPostgres() && missingTable(e)) await ensurePgSchema().catch(() => {});
-    return invalid(
-      dbProblem(e),
-      503,
-    );
+    return invalid(dbProblem(e), 503);
   }
 }
